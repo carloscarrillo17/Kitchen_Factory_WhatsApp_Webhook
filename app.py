@@ -424,6 +424,43 @@ def home():
     })
 
 
+
+# =========================================================
+# POLÍTICA DE PRIVACIDAD
+# =========================================================
+
+@app.get("/privacy")
+def privacy():
+    return """
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Política de Privacidad - Kitchen Factory</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; max-width: 850px; margin: 40px auto; padding: 20px; line-height: 1.6;">
+        <h1>Política de Privacidad</h1>
+        <h2>Kitchen Factory</h2>
+        <p>Kitchen Factory respeta la privacidad de sus clientes y se compromete a proteger la información personal proporcionada a través de nuestros canales de atención, incluido WhatsApp.</p>
+        <h3>Información que recopilamos</h3>
+        <p>Podemos recopilar información como nombre, número de teléfono, mensajes enviados y demás información proporcionada voluntariamente durante la comunicación con nuestra empresa.</p>
+        <h3>Uso de la información</h3>
+        <p>La información recopilada se utiliza para atender consultas, gestionar solicitudes, brindar soporte, realizar seguimiento de clientes y mejorar nuestros servicios.</p>
+        <h3>Protección de datos</h3>
+        <p>Kitchen Factory adopta medidas razonables para proteger la información personal y evitar accesos, usos o divulgaciones no autorizadas.</p>
+        <h3>Compartición de información</h3>
+        <p>No comercializamos ni vendemos los datos personales de nuestros clientes. La información podrá ser procesada mediante proveedores tecnológicos necesarios para brindar nuestros servicios.</p>
+        <h3>Derechos del usuario</h3>
+        <p>Los usuarios pueden solicitar información, actualización, corrección o eliminación de sus datos personales comunicándose con Kitchen Factory.</p>
+        <h3>Contacto</h3>
+        <p>Para consultas relacionadas con privacidad y protección de datos, puede comunicarse con Kitchen Factory a través de nuestros canales oficiales de atención.</p>
+        <p><strong>Última actualización: agosto de 2026.</strong></p>
+    </body>
+    </html>
+    """, 200
+
+
 @app.get("/webhook/whatsapp")
 def verify_webhook():
 
