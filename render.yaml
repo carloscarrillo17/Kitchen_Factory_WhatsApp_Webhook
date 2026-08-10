@@ -1,0 +1,10 @@
+
+services:
+  - type: web
+    name: kitchen-factory-whatsapp-webhook
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: VERIFY_TOKEN
+        value: kf_crm_verify_2026
