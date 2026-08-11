@@ -5,7 +5,9 @@ from zoneinfo import ZoneInfo
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
+from io import BytesIO
+from openpyxl import Workbook
 
 
 app = Flask(__name__)
@@ -63,6 +65,10 @@ def init_db():
             sale_amount NUMERIC(14,2) DEFAULT 0,
             loss_reason TEXT,
 
+            first_response_at TEXT,
+            last_advisor_reply TEXT,
+            response_time_seconds INTEGER,
+
             created_at TEXT,
             updated_at TEXT
         )
@@ -94,6 +100,9 @@ def init_db():
     # Migraciones seguras por si la tabla ya existía
     cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS sale_amount NUMERIC(14,2) DEFAULT 0")
     cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS loss_reason TEXT")
+    cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS first_response_at TEXT")
+    cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS last_advisor_reply TEXT")
+    cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS response_time_seconds INTEGER")
     cur.execute("ALTER TABLE messages ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'Organico'")
     cur.execute("ALTER TABLE messages ADD COLUMN IF NOT EXISTS campaign_name TEXT")
     cur.execute("ALTER TABLE messages ADD COLUMN IF NOT EXISTS ad_id TEXT")
@@ -303,6 +312,117 @@ def save_message(value):
             )
 
 
+
+# =========================================================
+# RESPUESTAS DE ASESORAS (WHATSAPP BUSINESS APP / COEXISTENCE)
+# =========================================================
+
+def calculate_response_seconds(first_contact, response_at):
+    if not first_contact or not response_at:
+        return None
+
+    try:
+        first_dt = datetime.fromisoformat(first_contact)
+        response_dt = datetime.fromisoformat(response_at)
+        seconds = int((response_dt - first_dt).total_seconds())
+        return max(seconds, 0)
+    except Exception:
+        return None
+
+
+def save_outgoing_echo(value):
+    """
+    Guarda mensajes enviados desde WhatsApp Business App / dispositivos vinculados
+    cuando Meta los entrega mediante smb_message_echoes.
+    """
+    metadata = value.get("metadata") or {}
+    phone_number_id = metadata.get("phone_number_id")
+
+    for msg in value.get("messages") or []:
+        message_id = msg.get("id")
+        customer_number = (
+            msg.get("to")
+            or msg.get("recipient")
+            or msg.get("recipient_id")
+        )
+        message_type = msg.get("type")
+
+        body = None
+        if message_type == "text":
+            body = (msg.get("text") or {}).get("body")
+        elif message_type:
+            body = json.dumps(msg.get(message_type) or {}, ensure_ascii=False)
+
+        timestamp = utc_to_lima(msg.get("timestamp"))
+
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            INSERT INTO messages(
+                wa_message_id, phone_number_id, from_number, contact_name,
+                message_type, body, timestamp,
+                referral_json, raw_json,
+                source, campaign_name, ad_id, direction
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (wa_message_id) DO NOTHING
+            RETURNING id
+        """, (
+            message_id,
+            phone_number_id,
+            customer_number,
+            None,
+            message_type,
+            body,
+            timestamp,
+            None,
+            json.dumps(msg, ensure_ascii=False),
+            None,
+            None,
+            None,
+            "outgoing"
+        ))
+
+        inserted = cur.fetchone()
+
+        if inserted and customer_number:
+            cur.execute("""
+                SELECT first_contact, first_response_at
+                FROM clients
+                WHERE phone_number = %s
+            """, (customer_number,))
+            client = cur.fetchone()
+
+            if client:
+                response_seconds = None
+                if not client.get("first_response_at"):
+                    response_seconds = calculate_response_seconds(
+                        client.get("first_contact"),
+                        timestamp
+                    )
+
+                cur.execute("""
+                    UPDATE clients
+                    SET
+                        last_advisor_reply = %s,
+                        first_response_at = COALESCE(first_response_at, %s),
+                        response_time_seconds = COALESCE(response_time_seconds, %s),
+                        updated_at = %s
+                    WHERE phone_number = %s
+                """, (
+                    timestamp,
+                    timestamp,
+                    response_seconds,
+                    now_lima(),
+                    customer_number
+                ))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+
 # =========================================================
 # WEBHOOK META / PÁGINAS
 # =========================================================
@@ -380,8 +500,13 @@ def receive_webhook():
 
     for entry in payload.get("entry") or []:
         for change in entry.get("changes") or []:
-            if change.get("field") == "messages":
-                save_message(change.get("value") or {})
+            field = change.get("field")
+            value = change.get("value") or {}
+
+            if field == "messages":
+                save_message(value)
+            elif field == "smb_message_echoes":
+                save_outgoing_echo(value)
 
     return jsonify({"status": "received"}), 200
 
@@ -516,7 +641,13 @@ def dashboard():
     </div>
 
     <div class="panel">
-        <h2 style="margin-top:0">Clientes</h2>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <h2 style="margin:0">Clientes</h2>
+            <a href="/export/clients.xlsx"
+               style="text-decoration:none;background:#f8fafc;color:#111827;padding:10px 14px;border-radius:9px;font-weight:700;">
+               Descargar Excel
+            </a>
+        </div>
 
         <div class="filters">
             <input id="search" placeholder="Buscar por nombre o teléfono">
@@ -546,6 +677,8 @@ def dashboard():
                         <th>Campaña</th>
                         <th>Primer contacto</th>
                         <th>Último mensaje cliente</th>
+                        <th>1ra respuesta asesora</th>
+                        <th>Tiempo respuesta</th>
                         <th>Mensajes</th>
                         <th>Estado</th>
                         <th>Asesor</th>
@@ -594,6 +727,17 @@ function formatLimaDate(value) {
         minute: "2-digit",
         hour12: true
     }).format(d);
+}
+
+function formatDuration(seconds) {
+    if (seconds === null || seconds === undefined || seconds === "") return "Pendiente";
+    const s = Number(seconds);
+    if (!Number.isFinite(s)) return "—";
+    if (s < 60) return `${s} s`;
+    const min = Math.floor(s / 60);
+    if (min < 60) return `${min} min ${s % 60} s`;
+    const h = Math.floor(min / 60);
+    return `${h} h ${min % 60} min`;
 }
 
 async function loadDashboard() {
@@ -645,6 +789,8 @@ function renderClients() {
             <td>${esc(c.campaign_name || "—")}</td>
             <td class="muted">${esc(formatLimaDate(c.first_contact))}</td>
             <td class="muted">${esc(formatLimaDate(c.last_contact))}</td>
+            <td class="muted">${esc(formatLimaDate(c.first_response_at))}</td>
+            <td><strong>${esc(formatDuration(c.response_time_seconds))}</strong></td>
             <td>${esc(c.total_messages || 0)}</td>
             <td>
                 <select class="mini" onchange="updateStatus('${esc(c.phone_number)}', this.value)">
@@ -753,7 +899,10 @@ def api_clients():
             source, campaign_name, ad_id,
             status, advisor,
             COALESCE(sale_amount, 0) AS sale_amount,
-            loss_reason
+            loss_reason,
+            first_response_at,
+            last_advisor_reply,
+            response_time_seconds
         FROM clients
         ORDER BY last_contact DESC NULLS LAST
     """)
@@ -848,6 +997,97 @@ def update_loss_reason(phone):
     conn.close()
 
     return jsonify({"ok": True, "loss_reason": reason})
+
+
+
+@app.get("/export/clients.xlsx")
+def export_clients_excel():
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            contact_name,
+            phone_number,
+            source,
+            campaign_name,
+            first_contact,
+            last_contact,
+            first_response_at,
+            response_time_seconds,
+            total_messages,
+            status,
+            advisor,
+            sale_amount,
+            loss_reason
+        FROM clients
+        ORDER BY last_contact DESC NULLS LAST
+    """)
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Clientes CRM"
+
+    headers = [
+        "Cliente",
+        "Teléfono",
+        "Origen",
+        "Campaña",
+        "Primer contacto",
+        "Último mensaje cliente",
+        "Primera respuesta asesora",
+        "Tiempo de respuesta (seg)",
+        "Mensajes",
+        "Estado",
+        "Asesora",
+        "Monto de venta",
+        "Motivo de pérdida"
+    ]
+    ws.append(headers)
+
+    for row in rows:
+        ws.append([
+            row.get("contact_name"),
+            row.get("phone_number"),
+            row.get("source"),
+            row.get("campaign_name"),
+            row.get("first_contact"),
+            row.get("last_contact"),
+            row.get("first_response_at"),
+            row.get("response_time_seconds"),
+            row.get("total_messages"),
+            row.get("status"),
+            row.get("advisor"),
+            float(row.get("sale_amount") or 0),
+            row.get("loss_reason")
+        ])
+
+    for cell in ws[1]:
+        cell.font = cell.font.copy(bold=True)
+
+    widths = {
+        "A": 24, "B": 18, "C": 16, "D": 28, "E": 24, "F": 24,
+        "G": 24, "H": 22, "I": 12, "J": 22, "K": 16, "L": 16, "M": 24
+    }
+    for col, width in widths.items():
+        ws.column_dimensions[col].width = width
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    filename = f"CRM_Kitchen_Factory_{datetime.now(LIMA_TZ).strftime('%Y-%m-%d_%H-%M')}.xlsx"
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 
 @app.get("/api/dashboard")
