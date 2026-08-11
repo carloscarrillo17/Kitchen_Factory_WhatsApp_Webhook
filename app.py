@@ -520,6 +520,288 @@ def receive_webhook():
     }), 200
 
 
+
+# =========================================================
+# DASHBOARD CRM
+# =========================================================
+
+@app.get("/dashboard")
+def dashboard():
+    return """
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM Kitchen Factory</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            color: #1f2937;
+        }
+        .wrap {
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        h1 { margin: 0 0 6px; }
+        .sub { color: #6b7280; margin-bottom: 22px; }
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(160px, 1fr));
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: 0 1px 4px rgba(0,0,0,.08);
+        }
+        .card .label { color: #6b7280; font-size: 13px; }
+        .card .value { font-size: 30px; font-weight: 700; margin-top: 8px; }
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: 0 1px 4px rgba(0,0,0,.08);
+            margin-bottom: 20px;
+        }
+        .filters {
+            display: grid;
+            grid-template-columns: 1.4fr 1fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        input, select {
+            width: 100%;
+            padding: 9px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            background: white;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th, td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+            vertical-align: top;
+        }
+        th {
+            background: #f9fafb;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        .table-wrap {
+            max-height: 620px;
+            overflow: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: #eef2f7;
+            font-size: 12px;
+        }
+        .muted { color: #6b7280; }
+        .mini {
+            padding: 6px 8px;
+            font-size: 12px;
+        }
+        @media (max-width: 1000px) {
+            .cards { grid-template-columns: repeat(2, 1fr); }
+            .filters { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <h1>CRM Kitchen Factory</h1>
+    <div class="sub">Seguimiento de clientes y conversaciones recibidas por WhatsApp</div>
+
+    <div class="cards">
+        <div class="card"><div class="label">Clientes totales</div><div class="value" id="totalClients">0</div></div>
+        <div class="card"><div class="label">Mensajes</div><div class="value" id="totalMessages">0</div></div>
+        <div class="card"><div class="label">Meta Ads</div><div class="value" id="metaClients">0</div></div>
+        <div class="card"><div class="label">Orgánicos</div><div class="value" id="organicClients">0</div></div>
+        <div class="card"><div class="label">Nuevos hoy</div><div class="value" id="todayClients">0</div></div>
+    </div>
+
+    <div class="panel">
+        <h2 style="margin-top:0">Clientes</h2>
+
+        <div class="filters">
+            <input id="search" placeholder="Buscar por nombre o teléfono">
+            <select id="sourceFilter">
+                <option value="">Todos los orígenes</option>
+                <option value="Organico">Orgánico</option>
+                <option value="Meta Ads">Meta Ads</option>
+            </select>
+            <select id="statusFilter">
+                <option value="">Todos los estados</option>
+                <option>Nuevo</option>
+                <option>En atención</option>
+                <option>Venta</option>
+                <option>Perdido</option>
+            </select>
+            <input id="campaignFilter" placeholder="Filtrar por campaña">
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Teléfono</th>
+                        <th>Origen</th>
+                        <th>Campaña</th>
+                        <th>Primer contacto</th>
+                        <th>Último contacto</th>
+                        <th>Mensajes</th>
+                        <th>Estado</th>
+                        <th>Asesor</th>
+                    </tr>
+                </thead>
+                <tbody id="clientsBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+let clients = [];
+
+function esc(v) {
+    return String(v ?? "")
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;");
+}
+
+function todayLima() {
+    return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Lima",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+    }).format(new Date());
+}
+
+async function loadDashboard() {
+    const r = await fetch("/api/dashboard");
+    const d = await r.json();
+
+    document.getElementById("totalClients").textContent = d.total_clients ?? 0;
+    document.getElementById("totalMessages").textContent = d.total_messages ?? 0;
+    document.getElementById("metaClients").textContent = d.meta_ads_clients ?? 0;
+    document.getElementById("organicClients").textContent = d.organic_clients ?? 0;
+
+    const today = todayLima();
+    const item = (d.clients_by_day || []).find(x => x.day === today);
+    document.getElementById("todayClients").textContent = item ? item.total : 0;
+}
+
+async function loadClients() {
+    const r = await fetch("/api/clients");
+    clients = await r.json();
+    renderClients();
+}
+
+function renderClients() {
+    const q = document.getElementById("search").value.toLowerCase().trim();
+    const source = document.getElementById("sourceFilter").value;
+    const status = document.getElementById("statusFilter").value;
+    const campaign = document.getElementById("campaignFilter").value.toLowerCase().trim();
+
+    const rows = clients.filter(c => {
+        const matchesSearch =
+            !q ||
+            String(c.contact_name || "").toLowerCase().includes(q) ||
+            String(c.phone_number || "").toLowerCase().includes(q);
+
+        const matchesSource = !source || c.source === source;
+        const matchesStatus = !status || c.status === status;
+        const matchesCampaign =
+            !campaign ||
+            String(c.campaign_name || "").toLowerCase().includes(campaign);
+
+        return matchesSearch && matchesSource && matchesStatus && matchesCampaign;
+    });
+
+    document.getElementById("clientsBody").innerHTML = rows.map(c => `
+        <tr>
+            <td><strong>${esc(c.contact_name || "Sin nombre")}</strong></td>
+            <td>${esc(c.phone_number)}</td>
+            <td><span class="badge">${esc(c.source || "Sin identificar")}</span></td>
+            <td>${esc(c.campaign_name || "—")}</td>
+            <td class="muted">${esc(c.first_contact || "—")}</td>
+            <td class="muted">${esc(c.last_contact || "—")}</td>
+            <td>${esc(c.total_messages || 0)}</td>
+            <td>
+                <select class="mini" onchange="updateStatus('${esc(c.phone_number)}', this.value)">
+                    ${["Nuevo","En atención","Venta","Perdido"].map(s =>
+                        `<option ${c.status === s ? "selected" : ""}>${s}</option>`
+                    ).join("")}
+                </select>
+            </td>
+            <td>
+                <input class="mini"
+                       value="${esc(c.advisor || "")}"
+                       placeholder="Asesor"
+                       onchange="updateAdvisor('${esc(c.phone_number)}', this.value)">
+            </td>
+        </tr>
+    `).join("");
+}
+
+async function updateStatus(phone, status) {
+    await fetch(`/api/client/${encodeURIComponent(phone)}/status`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({status})
+    });
+    await loadClients();
+    await loadDashboard();
+}
+
+async function updateAdvisor(phone, advisor) {
+    await fetch(`/api/client/${encodeURIComponent(phone)}/advisor`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({advisor})
+    });
+    await loadClients();
+}
+
+["search","sourceFilter","statusFilter","campaignFilter"].forEach(id => {
+    document.getElementById(id).addEventListener("input", renderClients);
+    document.getElementById(id).addEventListener("change", renderClients);
+});
+
+loadDashboard();
+loadClients();
+
+setInterval(() => {
+    loadDashboard();
+    loadClients();
+}, 15000);
+</script>
+</body>
+</html>
+    """, 200
+
+
 # =========================================================
 # API - CLIENTES
 # =========================================================
