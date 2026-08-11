@@ -539,16 +539,21 @@ def dashboard():
         body {
             margin: 0;
             font-family: Arial, sans-serif;
-            background: #f4f6f8;
-            color: #1f2937;
+            min-height: 100vh;
+            color: #e5e7eb;
+            background:
+                radial-gradient(circle at top left, rgba(255,255,255,.08), transparent 28%),
+                radial-gradient(circle at bottom right, rgba(255,255,255,.05), transparent 30%),
+                linear-gradient(135deg, #0f172a 0%, #111827 48%, #1f2937 100%);
+            background-attachment: fixed;
         }
         .wrap {
             max-width: 1500px;
             margin: 0 auto;
-            padding: 24px;
+            padding: 28px 24px 50px;
         }
         h1 { margin: 0 0 6px; }
-        .sub { color: #6b7280; margin-bottom: 22px; }
+        .sub { color: #cbd5e1; margin-bottom: 22px; }
         .cards {
             display: grid;
             grid-template-columns: repeat(5, minmax(160px, 1fr));
@@ -556,18 +561,22 @@ def dashboard():
             margin-bottom: 20px;
         }
         .card {
-            background: white;
-            border-radius: 12px;
+            background: rgba(255,255,255,.08);
+            border: 1px solid rgba(255,255,255,.12);
+            border-radius: 16px;
             padding: 18px;
-            box-shadow: 0 1px 4px rgba(0,0,0,.08);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 12px 30px rgba(0,0,0,.18);
         }
-        .card .label { color: #6b7280; font-size: 13px; }
+        .card .label { color: #cbd5e1; font-size: 13px; }
         .card .value { font-size: 30px; font-weight: 700; margin-top: 8px; }
         .panel {
-            background: white;
-            border-radius: 12px;
+            background: rgba(255,255,255,.08);
+            border: 1px solid rgba(255,255,255,.12);
+            border-radius: 16px;
             padding: 18px;
-            box-shadow: 0 1px 4px rgba(0,0,0,.08);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 12px 30px rgba(0,0,0,.18);
             margin-bottom: 20px;
         }
         .filters {
@@ -579,9 +588,10 @@ def dashboard():
         input, select {
             width: 100%;
             padding: 9px 10px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            background: white;
+            border: 1px solid rgba(255,255,255,.16);
+            border-radius: 9px;
+            background: rgba(255,255,255,.94);
+            color: #111827;
         }
         table {
             width: 100%;
@@ -590,12 +600,13 @@ def dashboard():
         }
         th, td {
             padding: 10px 8px;
-            border-bottom: 1px solid #e5e7eb;
+            border-bottom: 1px solid rgba(255,255,255,.10);
             text-align: left;
             vertical-align: top;
         }
         th {
-            background: #f9fafb;
+            background: #111827;
+            color: #f8fafc;
             position: sticky;
             top: 0;
             z-index: 1;
@@ -603,17 +614,19 @@ def dashboard():
         .table-wrap {
             max-height: 620px;
             overflow: auto;
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,.10);
+            border-radius: 12px;
+            background: rgba(15,23,42,.45);
         }
         .badge {
             display: inline-block;
             padding: 4px 8px;
             border-radius: 999px;
-            background: #eef2f7;
+            background: rgba(255,255,255,.12);
+            color: #f8fafc;
             font-size: 12px;
         }
-        .muted { color: #6b7280; }
+        .muted { color: #cbd5e1; }
         .mini {
             padding: 6px 8px;
             font-size: 12px;
@@ -626,7 +639,7 @@ def dashboard():
 </head>
 <body>
 <div class="wrap">
-    <h1>CRM Kitchen Factory</h1>
+    <h1 style='font-size:34px; letter-spacing:.2px;'>CRM Kitchen Factory</h1>
     <div class="sub">Seguimiento de clientes y conversaciones recibidas por WhatsApp</div>
 
     <div class="cards">
@@ -651,6 +664,7 @@ def dashboard():
                 <option value="">Todos los estados</option>
                 <option>Nuevo</option>
                 <option>En atención</option>
+                <option>Cotización / Seguimiento</option>
                 <option>Venta</option>
                 <option>Perdido</option>
             </select>
@@ -666,10 +680,12 @@ def dashboard():
                         <th>Origen</th>
                         <th>Campaña</th>
                         <th>Primer contacto</th>
-                        <th>Último contacto</th>
+                        <th>Último mensaje cliente</th>
                         <th>Mensajes</th>
                         <th>Estado</th>
                         <th>Asesor</th>
+                        <th>Monto venta</th>
+                        <th>Motivo pérdida</th>
                     </tr>
                 </thead>
                 <tbody id="clientsBody"></tbody>
@@ -696,6 +712,23 @@ function todayLima() {
         month: "2-digit",
         day: "2-digit"
     }).format(new Date());
+}
+
+function formatLimaDate(value) {
+    if (!value) return "—";
+
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+
+    return new Intl.DateTimeFormat("es-PE", {
+        timeZone: "America/Lima",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true
+    }).format(d);
 }
 
 async function loadDashboard() {
@@ -745,21 +778,39 @@ function renderClients() {
             <td>${esc(c.phone_number)}</td>
             <td><span class="badge">${esc(c.source || "Sin identificar")}</span></td>
             <td>${esc(c.campaign_name || "—")}</td>
-            <td class="muted">${esc(c.first_contact || "—")}</td>
-            <td class="muted">${esc(c.last_contact || "—")}</td>
+            <td class="muted">${esc(formatLimaDate(c.first_contact))}</td>
+            <td class="muted">${esc(formatLimaDate(c.last_contact))}</td>
             <td>${esc(c.total_messages || 0)}</td>
             <td>
                 <select class="mini" onchange="updateStatus('${esc(c.phone_number)}', this.value)">
-                    ${["Nuevo","En atención","Venta","Perdido"].map(s =>
+                    ${["Nuevo","En atención","Cotización / Seguimiento","Venta","Perdido"].map(s =>
                         `<option ${c.status === s ? "selected" : ""}>${s}</option>`
                     ).join("")}
                 </select>
             </td>
             <td>
+                <select class="mini" onchange="updateAdvisor('${esc(c.phone_number)}', this.value)">
+                    <option value="" ${!c.advisor ? "selected" : ""}>Sin asignar</option>
+                    ${["Narly","Raphaella","Ursula"].map(a =>
+                        `<option value="${a}" ${c.advisor === a ? "selected" : ""}>${a}</option>`
+                    ).join("")}
+                </select>
+            </td>
+            <td>
                 <input class="mini"
-                       value="${esc(c.advisor || "")}"
-                       placeholder="Asesor"
-                       onchange="updateAdvisor('${esc(c.phone_number)}', this.value)">
+                       type="number"
+                       min="0"
+                       step="0.01"
+                       value="${esc(c.sale_amount || 0)}"
+                       onchange="updateSale('${esc(c.phone_number)}', this.value)">
+            </td>
+            <td>
+                <select class="mini" onchange="updateLossReason('${esc(c.phone_number)}', this.value)">
+                    <option value="" ${!c.loss_reason ? "selected" : ""}>—</option>
+                    ${["No respondió","Precio","Sin stock","No interesado","Compró en otro lugar","Fuera de cobertura","Otro"].map(r =>
+                        `<option value="${r}" ${c.loss_reason === r ? "selected" : ""}>${r}</option>`
+                    ).join("")}
+                </select>
             </td>
         </tr>
     `).join("");
@@ -780,6 +831,24 @@ async function updateAdvisor(phone, advisor) {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({advisor})
+    });
+    await loadClients();
+}
+
+async function updateSale(phone, sale_amount) {
+    await fetch(`/api/client/${encodeURIComponent(phone)}/sale`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({sale_amount})
+    });
+    await loadClients();
+}
+
+async function updateLossReason(phone, loss_reason) {
+    await fetch(`/api/client/${encodeURIComponent(phone)}/loss-reason`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({loss_reason})
     });
     await loadClients();
 }
@@ -918,6 +987,42 @@ def api_events():
 # =========================================================
 # API - DASHBOARD
 # =========================================================
+
+
+@app.post("/api/client/<phone>/sale")
+def update_sale(phone):
+    data = request.get_json(silent=True) or {}
+    amount = data.get("sale_amount", 0)
+
+    try:
+        amount = float(amount or 0)
+    except Exception:
+        amount = 0
+
+    conn = get_db()
+    conn.execute(
+        "UPDATE clients SET sale_amount = ? WHERE phone_number = ?",
+        (amount, phone),
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.post("/api/client/<phone>/loss-reason")
+def update_loss_reason(phone):
+    data = request.get_json(silent=True) or {}
+    reason = (data.get("loss_reason") or "").strip()
+
+    conn = get_db()
+    conn.execute(
+        "UPDATE clients SET loss_reason = ? WHERE phone_number = ?",
+        (reason, phone),
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
 
 @app.get("/api/dashboard")
 def api_dashboard():
