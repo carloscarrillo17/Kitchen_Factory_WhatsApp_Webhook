@@ -517,369 +517,7 @@ def receive_webhook():
 
 @app.get("/dashboard")
 def dashboard():
-    return """
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CRM Kitchen Factory</title>
-    <style>
-        * { box-sizing: border-box; }
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            min-height: 100vh;
-            color: #e5e7eb;
-            background:
-                radial-gradient(circle at top left, rgba(255,255,255,.08), transparent 28%),
-                radial-gradient(circle at bottom right, rgba(255,255,255,.05), transparent 30%),
-                linear-gradient(135deg, #0f172a 0%, #111827 48%, #1f2937 100%);
-            background-attachment: fixed;
-        }
-        .wrap {
-            max-width: 1500px;
-            margin: 0 auto;
-            padding: 28px 24px 50px;
-        }
-        h1 { margin: 0 0 6px; }
-        .sub { color: #cbd5e1; margin-bottom: 22px; }
-        .cards {
-            display: grid;
-            grid-template-columns: repeat(5, minmax(160px, 1fr));
-            gap: 14px;
-            margin-bottom: 20px;
-        }
-        .card {
-            background: rgba(255,255,255,.08);
-            border: 1px solid rgba(255,255,255,.12);
-            border-radius: 16px;
-            padding: 18px;
-            backdrop-filter: blur(12px);
-            box-shadow: 0 12px 30px rgba(0,0,0,.18);
-        }
-        .card .label { color: #cbd5e1; font-size: 13px; }
-        .card .value { font-size: 30px; font-weight: 700; margin-top: 8px; }
-        .panel {
-            background: rgba(255,255,255,.08);
-            border: 1px solid rgba(255,255,255,.12);
-            border-radius: 16px;
-            padding: 18px;
-            backdrop-filter: blur(12px);
-            box-shadow: 0 12px 30px rgba(0,0,0,.18);
-            margin-bottom: 20px;
-        }
-        .filters {
-            display: grid;
-            grid-template-columns: 1.4fr 1fr 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 14px;
-        }
-        input, select {
-            width: 100%;
-            padding: 9px 10px;
-            border: 1px solid rgba(255,255,255,.16);
-            border-radius: 9px;
-            background: rgba(255,255,255,.94);
-            color: #111827;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-        th, td {
-            padding: 10px 8px;
-            border-bottom: 1px solid rgba(255,255,255,.10);
-            text-align: left;
-            vertical-align: top;
-        }
-        th {
-            background: #111827;
-            color: #f8fafc;
-            position: sticky;
-            top: 0;
-            z-index: 1;
-        }
-        .table-wrap {
-            max-height: 620px;
-            overflow: auto;
-            border: 1px solid rgba(255,255,255,.10);
-            border-radius: 12px;
-            background: rgba(15,23,42,.45);
-        }
-        .badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 999px;
-            background: rgba(255,255,255,.12);
-            color: #f8fafc;
-            font-size: 12px;
-        }
-        .muted { color: #cbd5e1; }
-        .mini {
-            padding: 6px 8px;
-            font-size: 12px;
-        }
-        @media (max-width: 1000px) {
-            .cards { grid-template-columns: repeat(2, 1fr); }
-            .filters { grid-template-columns: 1fr; }
-        }
-    </style>
-</head>
-<body>
-<div class="wrap">
-    <h1 style='font-size:34px; letter-spacing:.2px;'>CRM Kitchen Factory</h1>
-    <div class="sub">Seguimiento de clientes y conversaciones recibidas por WhatsApp</div>
-
-    <div class="cards">
-        <div class="card"><div class="label">Clientes totales</div><div class="value" id="totalClients">0</div></div>
-        <div class="card"><div class="label">Mensajes</div><div class="value" id="totalMessages">0</div></div>
-        <div class="card"><div class="label">Meta Ads</div><div class="value" id="metaClients">0</div></div>
-        <div class="card"><div class="label">Orgánicos</div><div class="value" id="organicClients">0</div></div>
-        <div class="card"><div class="label">Nuevos hoy</div><div class="value" id="todayClients">0</div></div>
-    </div>
-
-    <div class="panel">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
-            <h2 style="margin:0">Clientes</h2>
-            <a href="/export/clients.xlsx"
-               style="text-decoration:none;background:#f8fafc;color:#111827;padding:10px 14px;border-radius:9px;font-weight:700;">
-               Descargar Excel
-            </a>
-        </div>
-
-        <div class="filters">
-            <input id="search" placeholder="Buscar por nombre o teléfono">
-            <select id="sourceFilter">
-                <option value="">Todos los orígenes</option>
-                <option value="Organico">Orgánico</option>
-                <option value="Meta Ads">Meta Ads</option>
-            </select>
-            <select id="statusFilter">
-                <option value="">Todos los estados</option>
-                <option>Nuevo</option>
-                <option>En atención</option>
-                <option>Cotización / Seguimiento</option>
-                <option>Venta</option>
-                <option>Perdido</option>
-            </select>
-            <input id="campaignFilter" placeholder="Filtrar por campaña">
-        </div>
-
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Cliente</th>
-                        <th>Teléfono</th>
-                        <th>Origen</th>
-                        <th>Campaña</th>
-                        <th>Primer contacto</th>
-                        <th>Último mensaje cliente</th>
-                        <th>1ra respuesta asesora</th>
-                        <th>Tiempo respuesta</th>
-                        <th>Mensajes</th>
-                        <th>Estado</th>
-                        <th>Asesor</th>
-                        <th>Monto venta</th>
-                        <th>Motivo pérdida</th>
-                    </tr>
-                </thead>
-                <tbody id="clientsBody"></tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<script>
-let clients = [];
-
-function esc(v) {
-    return String(v ?? "")
-        .replaceAll("&","&amp;")
-        .replaceAll("<","&lt;")
-        .replaceAll(">","&gt;")
-        .replaceAll('"',"&quot;");
-}
-
-function todayLima() {
-    return new Intl.DateTimeFormat("en-CA", {
-        timeZone: "America/Lima",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit"
-    }).format(new Date());
-}
-
-function formatLimaDate(value) {
-    if (!value) return "—";
-
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return value;
-
-    return new Intl.DateTimeFormat("es-PE", {
-        timeZone: "America/Lima",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true
-    }).format(d);
-}
-
-function formatDuration(seconds) {
-    if (seconds === null || seconds === undefined || seconds === "") return "Pendiente";
-    const s = Number(seconds);
-    if (!Number.isFinite(s)) return "—";
-    if (s < 60) return `${s} s`;
-    const min = Math.floor(s / 60);
-    if (min < 60) return `${min} min ${s % 60} s`;
-    const h = Math.floor(min / 60);
-    return `${h} h ${min % 60} min`;
-}
-
-async function loadDashboard() {
-    const r = await fetch("/api/dashboard");
-    const d = await r.json();
-
-    document.getElementById("totalClients").textContent = d.total_clients ?? 0;
-    document.getElementById("totalMessages").textContent = d.total_messages ?? 0;
-    document.getElementById("metaClients").textContent = d.meta_ads_clients ?? 0;
-    document.getElementById("organicClients").textContent = d.organic_clients ?? 0;
-
-    const today = todayLima();
-    const item = (d.clients_by_day || []).find(x => x.day === today);
-    document.getElementById("todayClients").textContent = item ? item.total : 0;
-}
-
-async function loadClients() {
-    const r = await fetch("/api/clients");
-    clients = await r.json();
-    renderClients();
-}
-
-function renderClients() {
-    const q = document.getElementById("search").value.toLowerCase().trim();
-    const source = document.getElementById("sourceFilter").value;
-    const status = document.getElementById("statusFilter").value;
-    const campaign = document.getElementById("campaignFilter").value.toLowerCase().trim();
-
-    const rows = clients.filter(c => {
-        const matchesSearch =
-            !q ||
-            String(c.contact_name || "").toLowerCase().includes(q) ||
-            String(c.phone_number || "").toLowerCase().includes(q);
-
-        const matchesSource = !source || c.source === source;
-        const matchesStatus = !status || c.status === status;
-        const matchesCampaign =
-            !campaign ||
-            String(c.campaign_name || "").toLowerCase().includes(campaign);
-
-        return matchesSearch && matchesSource && matchesStatus && matchesCampaign;
-    });
-
-    document.getElementById("clientsBody").innerHTML = rows.map(c => `
-        <tr>
-            <td><strong>${esc(c.contact_name || "Sin nombre")}</strong></td>
-            <td>${esc(c.phone_number)}</td>
-            <td><span class="badge">${esc(c.source || "Sin identificar")}</span></td>
-            <td>${esc(c.campaign_name || "—")}</td>
-            <td class="muted">${esc(formatLimaDate(c.first_contact))}</td>
-            <td class="muted">${esc(formatLimaDate(c.last_contact))}</td>
-            <td class="muted">${esc(formatLimaDate(c.first_response_at))}</td>
-            <td><strong>${esc(formatDuration(c.response_time_seconds))}</strong></td>
-            <td>${esc(c.total_messages || 0)}</td>
-            <td>
-                <select class="mini" onchange="updateStatus('${esc(c.phone_number)}', this.value)">
-                    ${["Nuevo","En atención","Cotización / Seguimiento","Venta","Perdido"].map(s =>
-                        `<option ${c.status === s ? "selected" : ""}>${s}</option>`
-                    ).join("")}
-                </select>
-            </td>
-            <td>
-                <select class="mini" onchange="updateAdvisor('${esc(c.phone_number)}', this.value)">
-                    <option value="" ${!c.advisor ? "selected" : ""}>Sin asignar</option>
-                    ${["Narly","Raphaella","Ursula"].map(a =>
-                        `<option value="${a}" ${c.advisor === a ? "selected" : ""}>${a}</option>`
-                    ).join("")}
-                </select>
-            </td>
-            <td>
-                <input class="mini"
-                       type="number"
-                       min="0"
-                       step="0.01"
-                       value="${esc(c.sale_amount || 0)}"
-                       onchange="updateSale('${esc(c.phone_number)}', this.value)">
-            </td>
-            <td>
-                <select class="mini" onchange="updateLossReason('${esc(c.phone_number)}', this.value)">
-                    <option value="" ${!c.loss_reason ? "selected" : ""}>—</option>
-                    ${["No respondió","Precio","Sin stock","No interesado","Compró en otro lugar","Fuera de cobertura","Otro"].map(r =>
-                        `<option value="${r}" ${c.loss_reason === r ? "selected" : ""}>${r}</option>`
-                    ).join("")}
-                </select>
-            </td>
-        </tr>
-    `).join("");
-}
-
-async function updateStatus(phone, status) {
-    await fetch(`/api/client/${encodeURIComponent(phone)}/status`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({status})
-    });
-    await loadClients();
-    await loadDashboard();
-}
-
-async function updateAdvisor(phone, advisor) {
-    await fetch(`/api/client/${encodeURIComponent(phone)}/advisor`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({advisor})
-    });
-    await loadClients();
-}
-
-async function updateSale(phone, sale_amount) {
-    await fetch(`/api/client/${encodeURIComponent(phone)}/sale`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({sale_amount})
-    });
-    await loadClients();
-}
-
-async function updateLossReason(phone, loss_reason) {
-    await fetch(`/api/client/${encodeURIComponent(phone)}/loss-reason`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({loss_reason})
-    });
-    await loadClients();
-}
-
-["search","sourceFilter","statusFilter","campaignFilter"].forEach(id => {
-    document.getElementById(id).addEventListener("input", renderClients);
-    document.getElementById(id).addEventListener("change", renderClients);
-});
-
-loadDashboard();
-loadClients();
-
-setInterval(() => {
-    loadDashboard();
-    loadClients();
-}, 15000);
-</script>
-</body>
-</html>
-    """, 200
+    return r'''<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CRM Kitchen Factory</title><script src="https://cdn.jsdelivr.net/npm/chart.js"></script><style>*{box-sizing:border-box}:root{--bg:#09111f;--panel:#121d31;--line:rgba(255,255,255,.09);--text:#f8fafc;--muted:#aab6ca}body{margin:0;font-family:Arial,sans-serif;color:var(--text);background:radial-gradient(circle at 10% 0,rgba(245,158,11,.11),transparent 25%),radial-gradient(circle at 90% 0,rgba(59,130,246,.10),transparent 25%),linear-gradient(145deg,#07101d,#0d182a 55%,#101b2e);min-height:100vh}.app{max-width:1680px;margin:auto;padding:24px}.top{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:18px}.brand h1{margin:0;font-size:31px}.brand p{margin:5px 0 0;color:var(--muted)}.tabs{display:flex;gap:7px;padding:6px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.04)}.tabbtn{border:0;background:transparent;color:var(--muted);padding:10px 15px;border-radius:9px;font-weight:700;cursor:pointer}.tabbtn.active{background:#fff;color:#111827}.tab{display:none}.tab.active{display:block}.cards{display:grid;grid-template-columns:repeat(8,minmax(130px,1fr));gap:12px;margin-bottom:15px}.card,.panel{background:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.045));border:1px solid var(--line);border-radius:15px;box-shadow:0 12px 28px rgba(0,0,0,.15)}.card{padding:16px}.label{font-size:12px;color:var(--muted)}.value{font-size:28px;font-weight:800;margin-top:7px}.value.small{font-size:20px}.panel{padding:16px}.grid3{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;margin-bottom:14px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}.panel h3,.panel h2{margin:0 0 14px}.chart{height:310px}.sectionhead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.btn{background:#fff;color:#111827;text-decoration:none;font-weight:800;padding:10px 14px;border-radius:9px}.filters{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:10px;margin:14px 0}input,select{width:100%;padding:9px 10px;border:1px solid #d5dbe5;border-radius:9px;background:#f8fafc;color:#111827}.tablewrap{max-height:620px;overflow:auto;border:1px solid var(--line);border-radius:12px;background:rgba(5,12,24,.45)}table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:1450px}th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}th{position:sticky;top:0;background:#0d1728;z-index:2}.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.11)}.muted{color:var(--muted)}.mini{padding:6px 8px;font-size:12px}.rank{min-width:0}.empty{text-align:center;color:var(--muted);padding:18px}@media(max-width:1350px){.cards{grid-template-columns:repeat(4,1fr)}.grid3{grid-template-columns:1fr 1fr}}@media(max-width:900px){.cards{grid-template-columns:repeat(2,1fr)}.grid2,.grid3,.filters{grid-template-columns:1fr}.top{flex-direction:column;align-items:flex-start}}</style></head><body><div class="app"><div class="top"><div class="brand"><h1>CRM Kitchen Factory</h1><p>Ventas, leads, WhatsApp y desempeño comercial</p></div><div class="tabs"><button class="tabbtn active" data-tab="dash">Dashboard</button><button class="tabbtn" data-tab="clients">Clientes</button></div></div><section id="dash" class="tab active"><div class="cards"><div class="card"><div class="label">Leads totales</div><div class="value" id="totalClients">0</div></div><div class="card"><div class="label">Nuevos hoy</div><div class="value" id="newToday">0</div></div><div class="card"><div class="label">Mensajes</div><div class="value" id="totalMessages">0</div></div><div class="card"><div class="label">Ventas</div><div class="value" id="salesCount">0</div></div><div class="card"><div class="label">Conversión</div><div class="value" id="conversion">0%</div></div><div class="card"><div class="label">Monto vendido</div><div class="value small" id="salesAmount">S/ 0</div></div><div class="card"><div class="label">Meta Ads</div><div class="value" id="metaClients">0</div></div><div class="card"><div class="label">Resp. promedio</div><div class="value small" id="avgResponse">—</div></div></div><div class="grid3"><div class="panel"><h3>Leads por día</h3><div class="chart"><canvas id="dayChart"></canvas></div></div><div class="panel"><h3>Embudo comercial</h3><div class="chart"><canvas id="statusChart"></canvas></div></div><div class="panel"><h3>Origen de leads</h3><div class="chart"><canvas id="sourceChart"></canvas></div></div></div><div class="grid2"><div class="panel"><h3>Desempeño por asesora</h3><div class="chart"><canvas id="advisorChart"></canvas></div></div><div class="panel"><h3>Top campañas</h3><div class="chart"><canvas id="campaignChart"></canvas></div></div></div><div class="panel"><h3>Ranking comercial</h3><div style="overflow:auto"><table class="rank"><thead><tr><th>Asesora</th><th>Leads</th><th>Ventas</th><th>Conversión</th><th>Monto vendido</th></tr></thead><tbody id="advisorRanking"></tbody></table></div></div></section><section id="clients" class="tab"><div class="panel"><div class="sectionhead"><div><h2 style="margin:0">Gestión de clientes</h2><div class="muted" style="margin-top:4px">Seguimiento comercial y atención por WhatsApp</div></div><a class="btn" href="/export/clients.xlsx">Descargar Excel</a></div><div class="filters"><input id="search" placeholder="Buscar por nombre o teléfono"><select id="sourceFilter"><option value="">Todos los orígenes</option><option value="Organico">Orgánico</option><option value="Meta Ads">Meta Ads</option></select><select id="statusFilter"><option value="">Todos los estados</option><option>Nuevo</option><option>En atención</option><option>Cotización / Seguimiento</option><option>Venta</option><option>Perdido</option></select><input id="campaignFilter" placeholder="Filtrar por campaña"></div><div class="tablewrap"><table><thead><tr><th>Cliente</th><th>Teléfono</th><th>Origen</th><th>Campaña</th><th>Primer contacto</th><th>Último mensaje cliente</th><th>1ra respuesta asesora</th><th>Tiempo respuesta</th><th>Mensajes</th><th>Estado</th><th>Asesor</th><th>Monto venta</th><th>Motivo pérdida</th></tr></thead><tbody id="clientsBody"></tbody></table></div></div></section></div><script>let clients=[],charts={};const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"','&quot;');function fmtDate(v){if(!v)return"—";const d=new Date(v);if(Number.isNaN(d.getTime()))return v;return new Intl.DateTimeFormat("es-PE",{timeZone:"America/Lima",day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",hour12:true}).format(d)}function fmtDur(s){if(s===null||s===undefined||s==="")return"Pendiente";s=Number(s);if(!Number.isFinite(s))return"—";if(s<60)return`${Math.round(s)} s`;let m=Math.floor(s/60);if(m<60)return`${m} min`;return`${Math.floor(m/60)} h ${m%60} min`}function money(v){return new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0))}document.querySelectorAll(".tabbtn").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tabbtn").forEach(x=>x.classList.remove("active"));document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.getElementById(b.dataset.tab).classList.add("active")});function dc(n){if(charts[n])charts[n].destroy()}async function loadDashboard(){let d=await (await fetch("/api/dashboard")).json();totalClients.textContent=d.total_clients??0;newToday.textContent=d.new_today??0;totalMessages.textContent=d.total_messages??0;salesCount.textContent=d.sales_count??0;conversion.textContent=`${d.conversion_rate??0}%`;salesAmount.textContent=money(d.total_sales_amount);metaClients.textContent=d.meta_ads_clients??0;avgResponse.textContent=fmtDur(d.avg_response_seconds);const tc="#aab6ca",gc="rgba(255,255,255,.07)";dc("day");charts.day=new Chart(dayChart,{type:"line",data:{labels:(d.clients_by_day||[]).map(x=>x.day),datasets:[{data:(d.clients_by_day||[]).map(x=>x.total),label:"Leads",tension:.35,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:tc},grid:{color:gc}},y:{beginAtZero:true,ticks:{color:tc,precision:0},grid:{color:gc}}}}});dc("status");charts.status=new Chart(statusChart,{type:"doughnut",data:{labels:(d.clients_by_status||[]).map(x=>x.status),datasets:[{data:(d.clients_by_status||[]).map(x=>x.total)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom",labels:{color:tc}}}}});dc("source");charts.source=new Chart(sourceChart,{type:"doughnut",data:{labels:(d.clients_by_source||[]).map(x=>x.source),datasets:[{data:(d.clients_by_source||[]).map(x=>x.total)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom",labels:{color:tc}}}}});dc("advisor");charts.advisor=new Chart(advisorChart,{type:"bar",data:{labels:(d.clients_by_advisor||[]).map(x=>x.advisor),datasets:[{label:"Leads",data:(d.clients_by_advisor||[]).map(x=>x.leads)},{label:"Ventas",data:(d.clients_by_advisor||[]).map(x=>x.sales)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tc}}},scales:{x:{ticks:{color:tc},grid:{color:gc}},y:{beginAtZero:true,ticks:{color:tc,precision:0},grid:{color:gc}}}}});dc("campaign");charts.campaign=new Chart(campaignChart,{type:"bar",data:{labels:(d.clients_by_campaign||[]).map(x=>x.campaign),datasets:[{data:(d.clients_by_campaign||[]).map(x=>x.leads),label:"Leads"}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{color:tc,precision:0},grid:{color:gc}},y:{ticks:{color:tc},grid:{color:gc}}}}});advisorRanking.innerHTML=(d.clients_by_advisor||[]).map(x=>`<tr><td><strong>${esc(x.advisor)}</strong></td><td>${x.leads}</td><td>${x.sales}</td><td>${x.leads?((x.sales/x.leads)*100).toFixed(1):"0.0"}%</td><td>${money(x.amount)}</td></tr>`).join("")||'<tr><td class="empty" colspan="5">Aún no hay información.</td></tr>'}async function loadClients(){clients=await (await fetch("/api/clients")).json();renderClients()}function renderClients(){const q=search.value.toLowerCase().trim(),so=sourceFilter.value,st=statusFilter.value,ca=campaignFilter.value.toLowerCase().trim();const rows=clients.filter(c=>(!q||String(c.contact_name||"").toLowerCase().includes(q)||String(c.phone_number||"").includes(q))&&(!so||c.source===so)&&(!st||c.status===st)&&(!ca||String(c.campaign_name||"").toLowerCase().includes(ca)));clientsBody.innerHTML=rows.map(c=>`<tr><td><strong>${esc(c.contact_name||"Sin nombre")}</strong></td><td>${esc(c.phone_number)}</td><td><span class="badge">${esc(c.source||"Sin identificar")}</span></td><td>${esc(c.campaign_name||"—")}</td><td class="muted">${esc(fmtDate(c.first_contact))}</td><td class="muted">${esc(fmtDate(c.last_contact))}</td><td class="muted">${esc(fmtDate(c.first_response_at))}</td><td><strong>${esc(fmtDur(c.response_time_seconds))}</strong></td><td>${esc(c.total_messages||0)}</td><td><select class="mini" onchange="updateStatus('${esc(c.phone_number)}',this.value)">${["Nuevo","En atención","Cotización / Seguimiento","Venta","Perdido"].map(s=>`<option ${c.status===s?"selected":""}>${s}</option>`).join("")}</select></td><td><select class="mini" onchange="updateAdvisor('${esc(c.phone_number)}',this.value)"><option value="" ${!c.advisor?"selected":""}>Sin asignar</option>${["Narly","Raphaella","Ursula"].map(a=>`<option value="${a}" ${c.advisor===a?"selected":""}>${a}</option>`).join("")}</select></td><td><input class="mini" type="number" min="0" step="0.01" value="${esc(c.sale_amount||0)}" onchange="updateSale('${esc(c.phone_number)}',this.value)"></td><td><select class="mini" onchange="updateLossReason('${esc(c.phone_number)}',this.value)"><option value="" ${!c.loss_reason?"selected":""}>—</option>${["No respondió","Precio","Sin stock","No interesado","Compró en otro lugar","Fuera de cobertura","Otro"].map(r=>`<option value="${r}" ${c.loss_reason===r?"selected":""}>${r}</option>`).join("")}</select></td></tr>`).join("")}async function upd(url,obj){await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(obj)});await Promise.all([loadClients(),loadDashboard()])}const updateStatus=(p,v)=>upd(`/api/client/${encodeURIComponent(p)}/status`,{status:v}),updateAdvisor=(p,v)=>upd(`/api/client/${encodeURIComponent(p)}/advisor`,{advisor:v}),updateSale=(p,v)=>upd(`/api/client/${encodeURIComponent(p)}/sale`,{sale_amount:v}),updateLossReason=(p,v)=>upd(`/api/client/${encodeURIComponent(p)}/loss-reason`,{loss_reason:v});["search","sourceFilter","statusFilter","campaignFilter"].forEach(id=>{document.getElementById(id).addEventListener("input",renderClients);document.getElementById(id).addEventListener("change",renderClients)});loadDashboard();loadClients();setInterval(()=>{loadDashboard();loadClients()},30000)</script></body></html>''', 200
 
 
 
@@ -1097,64 +735,73 @@ def api_dashboard():
 
     cur.execute("SELECT COUNT(*) AS total FROM clients")
     total_clients = cur.fetchone()["total"]
-
     cur.execute("SELECT COUNT(*) AS total FROM messages")
     total_messages = cur.fetchone()["total"]
-
     cur.execute("SELECT COUNT(*) AS total FROM clients WHERE source = 'Meta Ads'")
     meta_clients = cur.fetchone()["total"]
-
-    cur.execute("""
-        SELECT COUNT(*) AS total
-        FROM clients
-        WHERE source != 'Meta Ads' OR source IS NULL
-    """)
+    cur.execute("SELECT COUNT(*) AS total FROM clients WHERE source != 'Meta Ads' OR source IS NULL")
     organic_clients = cur.fetchone()["total"]
-
-    cur.execute("""
-        SELECT COALESCE(source, 'Sin identificar') AS source, COUNT(*) AS total
-        FROM clients
-        GROUP BY source
-        ORDER BY total DESC
-    """)
+    cur.execute("SELECT COUNT(*) AS total FROM clients WHERE status = 'Venta'")
+    sales_count = cur.fetchone()["total"]
+    cur.execute("SELECT COUNT(*) AS total FROM clients WHERE status = 'Perdido'")
+    lost_count = cur.fetchone()["total"]
+    cur.execute("SELECT COALESCE(SUM(sale_amount), 0) AS total FROM clients WHERE status = 'Venta'")
+    total_sales_amount = float(cur.fetchone()["total"] or 0)
+    conversion_rate = round((sales_count / total_clients * 100), 2) if total_clients else 0
+    cur.execute("SELECT AVG(response_time_seconds) AS avg_response FROM clients WHERE response_time_seconds IS NOT NULL")
+    avg_response_seconds = cur.fetchone()["avg_response"]
+    avg_response_seconds = round(float(avg_response_seconds), 1) if avg_response_seconds is not None else None
+    cur.execute("SELECT COUNT(*) AS total FROM clients WHERE LEFT(first_contact, 10) = %s", (datetime.now(LIMA_TZ).strftime("%Y-%m-%d"),))
+    new_today = cur.fetchone()["total"]
+    cur.execute("SELECT COALESCE(source, 'Sin identificar') AS source, COUNT(*) AS total FROM clients GROUP BY source ORDER BY total DESC")
     by_source = cur.fetchall()
-
+    cur.execute("SELECT COALESCE(status, 'Sin estado') AS status, COUNT(*) AS total FROM clients GROUP BY status ORDER BY total DESC")
+    by_status = cur.fetchall()
     cur.execute("""
-        SELECT COALESCE(campaign_name, 'Sin campaña') AS campaign, COUNT(*) AS total
-        FROM clients
-        GROUP BY campaign_name
-        ORDER BY total DESC
+        SELECT COALESCE(advisor, 'Sin asignar') AS advisor,
+               COUNT(*) AS leads,
+               COUNT(*) FILTER (WHERE status = 'Venta') AS sales,
+               COALESCE(SUM(sale_amount) FILTER (WHERE status = 'Venta'), 0) AS amount
+        FROM clients GROUP BY advisor ORDER BY leads DESC
+    """)
+    by_advisor = cur.fetchall()
+    for row in by_advisor: row["amount"] = float(row["amount"] or 0)
+    cur.execute("""
+        SELECT COALESCE(campaign_name, 'Sin campaña') AS campaign,
+               COUNT(*) AS leads,
+               COUNT(*) FILTER (WHERE status = 'Venta') AS sales,
+               COALESCE(SUM(sale_amount) FILTER (WHERE status = 'Venta'), 0) AS amount
+        FROM clients GROUP BY campaign_name ORDER BY leads DESC LIMIT 12
     """)
     by_campaign = cur.fetchall()
-
+    for row in by_campaign: row["amount"] = float(row["amount"] or 0)
     cur.execute("""
         SELECT LEFT(first_contact, 10) AS day, COUNT(*) AS total
-        FROM clients
-        WHERE first_contact IS NOT NULL
-        GROUP BY day
-        ORDER BY day DESC
-        LIMIT 30
+        FROM clients WHERE first_contact IS NOT NULL
+        GROUP BY day ORDER BY day DESC LIMIT 30
     """)
-    by_day = cur.fetchall()
-
+    by_day = list(reversed(cur.fetchall()))
     cur.execute("""
         SELECT SUBSTRING(first_contact FROM 12 FOR 2) AS hour, COUNT(*) AS total
-        FROM clients
-        WHERE first_contact IS NOT NULL
-        GROUP BY hour
-        ORDER BY hour
+        FROM clients WHERE first_contact IS NOT NULL
+        GROUP BY hour ORDER BY hour
     """)
     by_hour = cur.fetchall()
-
-    cur.close()
-    conn.close()
-
+    cur.close(); conn.close()
     return jsonify({
         "total_clients": total_clients,
         "total_messages": total_messages,
         "meta_ads_clients": meta_clients,
         "organic_clients": organic_clients,
+        "new_today": new_today,
+        "sales_count": sales_count,
+        "lost_count": lost_count,
+        "total_sales_amount": total_sales_amount,
+        "conversion_rate": conversion_rate,
+        "avg_response_seconds": avg_response_seconds,
         "clients_by_source": by_source,
+        "clients_by_status": by_status,
+        "clients_by_advisor": by_advisor,
         "clients_by_campaign": by_campaign,
         "clients_by_day": by_day,
         "clients_by_hour": by_hour
