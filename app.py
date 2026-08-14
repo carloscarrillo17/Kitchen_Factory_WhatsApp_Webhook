@@ -190,9 +190,6 @@ def init_db():
     conn.close()
 
 
-init_db()
-
-
 # =========================================================
 # UTILIDADES
 # =========================================================
@@ -222,6 +219,10 @@ def parse_iso_lima(value):
         return dt.astimezone(LIMA_TZ)
     except Exception:
         return None
+
+
+# Inicializar la base de datos después de definir now_lima() y utilidades de fecha
+init_db()
 
 
 def classify_returning_lead(previous_contact, new_contact, current_type="Nuevo", current_conversations=1):
