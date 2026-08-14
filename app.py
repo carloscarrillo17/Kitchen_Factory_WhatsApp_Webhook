@@ -21,6 +21,10 @@ if not DATABASE_URL:
 LIMA_TZ = ZoneInfo("America/Lima")
 
 
+def now_lima():
+    return datetime.now(LIMA_TZ).isoformat()
+
+
 # =========================================================
 # BASE DE DATOS POSTGRESQL
 # =========================================================
@@ -206,10 +210,6 @@ def utc_to_lima(timestamp):
         return dt_utc.astimezone(LIMA_TZ).isoformat()
     except Exception:
         return str(timestamp)
-
-
-def now_lima():
-    return datetime.now(LIMA_TZ).isoformat()
 
 
 def parse_iso_lima(value):
